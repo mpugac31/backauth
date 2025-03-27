@@ -84,7 +84,7 @@ def create_access_token(data: dict, expires_delta: timedelta):
 
 @app.post("/register/")
 def register_user(user: UserRegister, db: Session = Depends(get_db)):
-    """ Ендпоінт для реєстрації або перевірки користувача.
+    """  для реєстрації або перевірки користувача.
     - email: Унікальна електронна пошта.
     - password: Пароль користувача (мінімум 6 символів, максимум 50).
     - db: Сесія бази даних (автоматично підставляється через Depends(get_db)).
