@@ -1,18 +1,31 @@
 import requests
+import json
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
+from kivy.storage.jsonstore import JsonStore
 from kivy.lang import Builder
 
-API_URL = "http://127.0.0.1:8000/register/"  # Адреса бекенду
+API_URL = "http://127.0.0.1:8000"  # Адреса бекенду
+TOKEN_FILE = "user_token.json"  # Файл для збереження токена
+
 
 class LoginScreen(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", **kwargs)
+        self.store = JsonStore(TOKEN_FILE)
 
-        # Створення елементів інтерфейсу
+        if self.store.exists("token"):
+            self.auto_login()
+        else:
+            self.show_login_form()
+
+    def show_login_form(self):
+        """Відображення форми входу/реєстрації."""
+        self.clear_widgets()
+
         self.add_widget(Label(text="Email:"))
         self.email_input = TextInput(multiline=False)
         self.add_widget(self.email_input)
@@ -29,7 +42,7 @@ class LoginScreen(BoxLayout):
         self.add_widget(self.status_label)
 
     def login_register(self, instance):
-        """Відправляє запит на сервер для реєстрації або входу."""
+        """Запит на сервер для входу або реєстрації."""
         email = self.email_input.text
         password = self.password_input.text
 
@@ -38,35 +51,43 @@ class LoginScreen(BoxLayout):
             return
 
         data = {"email": email, "password": password}
-        response = requests.post(API_URL, json=data)#відправляє джсон повідомлення
-
+        response = requests.post(f"{API_URL}/register/", json=data)
 
         if response.status_code == 200:
-            user_data = response.json()#остримує джсон відповідь
+            user_data = response.json()
+            self.store.put("token", access_token=user_data.get("access_token", ""))
             self.status_label.text = f"Ласкаво просимо, {user_data.get('username', 'User')}!"
             self.show_user_info(user_data)
-            print(user_data)
         else:
             self.status_label.text = response.json().get("detail", "Помилка входу/реєстрації")
 
-    def show_user_info(self, user_data):
-        """Виводить інформацію про користувача після входу або реєстрації."""
-        self.clear_widgets()
-        if 'email' in user_data:
-            self.add_widget(Label(text=f"ID: {user_data.get('user_id', 'N/A')}"))
-            self.add_widget(Label(text=f"Email: {user_data['email']}"))
-            self.add_widget(Label(text=f"Username: {user_data['username']}"))
+    def auto_login(self):
+        """Перевірка токена при запуску."""
+        token_data = self.store.get("token")
+        headers = {"Authorization": f"Bearer {token_data['access_token']}"}
+        response = requests.get(f"{API_URL}/user_info/", headers=headers)
+
+        if response.status_code == 200:
+            self.show_main_menu()
         else:
-            self.add_widget(Label(text="Помилка: Не вдалося отримати інформацію про користувача"))
+            self.store.delete("token")
+            self.show_login_form()
+
+    def show_user_info(self, user_data):
+        """Відображає інформацію про користувача після входу."""
+        self.clear_widgets()
+        self.add_widget(Label(text=f"ID: {user_data.get('user_id', 'N/A')}"))
+        self.add_widget(Label(text=f"Email: {user_data['email']}"))
+        self.add_widget(Label(text=f"Username: {user_data['username']}"))
+
         logout_button = Button(text="Logout")
         logout_button.bind(on_press=self.logout)
         self.add_widget(logout_button)
 
     def logout(self, instance):
         """Вихід з аккаунта та повернення на екран входу."""
-        self.clear_widgets()
-        self.__init__()  # Перезапуск екрану входу
-
+        self.store.delete("token")
+        self.show_login_form()
 
 
 class LoginApp(App):
