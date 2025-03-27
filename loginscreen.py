@@ -9,6 +9,7 @@ from kivy.storage.jsonstore import JsonStore
 from kivy.lang import Builder
 
 API_URL = "http://127.0.0.1:8000"  # Адреса бекенду
+
 TOKEN_FILE = "user_token.json"  # Файл для збереження токена
 
 
