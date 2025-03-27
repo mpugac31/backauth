@@ -51,15 +51,25 @@ class LoginScreen(BoxLayout):
             return
 
         data = {"email": email, "password": password}
-        response = requests.post(f"{API_URL}/register/", json=data)
+        try:
+            response = requests.post(f"{API_URL}/register/", json=data)
+            response.raise_for_status()
 
-        if response.status_code == 200:
-            user_data = response.json()
-            self.store.put("token", access_token=user_data.get("access_token", ""))
-            self.status_label.text = f"Ласкаво просимо, {user_data.get('username', 'User')}!"
-            self.show_user_info(user_data)
-        else:
-            self.status_label.text = response.json().get("detail", "Помилка входу/реєстрації")
+            if response.status_code == 200:
+                login_response = requests.post(f"{API_URL}/login/", json=data)
+                login_response.raise_for_status()
+
+                if login_response.status_code == 200:
+                    token_data = login_response.json()
+                    self.store.put("token", access_token=token_data["access_token"])
+                    self.status_label.text = f"Ласкаво просимо, {data['email']}!"
+                    self.show_user_info({"user_id": response.json()["user_id"], "email": email, "username": "NewUser"})
+                else:
+                    self.status_label.text = "Помилка входу після реєстрації"
+            else:
+                self.status_label.text = response.json().get("detail", "Помилка входу/реєстрації")
+        except requests.RequestException as e:
+            self.status_label.text = f"Помилка з'єднання: {str(e)}"
 
     def auto_login(self):
         """Перевірка токена при запуску."""
@@ -68,9 +78,10 @@ class LoginScreen(BoxLayout):
         response = requests.get(f"{API_URL}/user_info/", headers=headers)
 
         if response.status_code == 200:
-            self.show_main_menu()
+            user_data = response.json()
+            self.show_user_info(user_data)
         else:
-            self.store.delete("token")
+            self.store.delete("token")  # Очищення токена
             self.show_login_form()
 
     def show_user_info(self, user_data):
